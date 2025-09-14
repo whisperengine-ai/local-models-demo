@@ -1,0 +1,24 @@
+# Requirements for air-gapped LLM system (macOS Apple Silicon compatible)
+# Install with: pip install -r requirements.txt
+
+torch>=2.8.0
+transformers>=4.56.0
+sentence-transformers>=5.1.0
+scikit-learn>=1.7.0
+numpy>=2.3.0
+tokenizers>=0.22.0
+protobuf>=6.32.0
+safetensors>=0.6.0
+psutil>=6.1.0
+
+# Additional dependencies (automatically installed with above)
+# huggingface-hub>=0.34.0
+# requests>=2.32.0
+# tqdm>=4.67.0
+
+# Optional: For GGUF model support (CPU-optimized)
+# llama-cpp-python>=0.2.0
+
+# Optional: For additional functionality  
+# accelerate>=0.20.0
+# bitsandbytes>=0.41.0
