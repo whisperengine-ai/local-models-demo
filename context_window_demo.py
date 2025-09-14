@@ -11,10 +11,10 @@ Usage: python context_window_demo.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
+from offline_utils import enforce_offline_mode, get_safe_model_loading_kwargs, check_local_model_exists
 
-# Set offline mode
-os.environ['HF_HUB_OFFLINE'] = '1'
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
+# Set offline mode using standardized enforcement
+enforce_offline_mode()
 
 class ContextWindowManager:
     """Manages context window for conversations and text generation"""

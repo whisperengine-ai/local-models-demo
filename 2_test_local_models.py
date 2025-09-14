@@ -9,9 +9,12 @@ Usage: python 2_test_local_models.py
 """
 
 import os
+import sys
 import torch
+import psutil
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer
+from offline_utils import enforce_offline_mode, get_safe_model_loading_kwargs, check_local_model_exists
 
 class LLMConfig:
     """Configuration class for controlling LLM generation parameters"""
@@ -72,15 +75,10 @@ class LLMConfig:
         return cls(temperature=0.3, max_new_tokens=30, top_p=0.7, top_k=20)
     
     @classmethod
+    @classmethod
     def deterministic(cls):
         """Deterministic responses (no randomness)"""
         return cls(temperature=0.0, do_sample=False, max_new_tokens=50)
-
-def set_offline_mode():
-    """Force offline mode to ensure no internet access"""
-    os.environ['HF_HUB_OFFLINE'] = '1'
-    os.environ['TRANSFORMERS_OFFLINE'] = '1'
-    print("🔒 Offline mode enabled - no internet access allowed")
 
 def get_best_device():
     """Determine the best available device for model inference"""
@@ -153,16 +151,21 @@ def test_chat_model():
         device = get_best_device()
         print(f"🎯 Using device: {device}")
         
-        # Load model with local_files_only=True
-        print("🔄 Loading tokenizer and model...")
-        tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+        # Check model exists locally
+        if not check_local_model_exists(model_path):
+            return
         
-        # Load model 
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path, 
-            local_files_only=True,
-            torch_dtype=torch.float16 if device != "cpu" else torch.float32
-        )
+        # Load model with standardized safe parameters
+        print("🔄 Loading tokenizer and model...")
+        safe_kwargs = get_safe_model_loading_kwargs()
+        
+        tokenizer = AutoTokenizer.from_pretrained(model_path, **safe_kwargs)
+        
+        # Load model with device-specific optimizations
+        model_kwargs = safe_kwargs.copy()
+        model_kwargs['torch_dtype'] = torch.float16 if device != "cpu" else torch.float32
+        
+        model = AutoModelForCausalLM.from_pretrained(model_path, **model_kwargs)
         
         # Move model to device if not CPU
         if device != "cpu":
@@ -468,8 +471,8 @@ def main():
     print("=== LOCAL MODEL TESTING SCRIPT ===")
     print("Testing locally downloaded models (offline mode)")
     
-    # Enable offline mode
-    set_offline_mode()
+    # Enable offline mode with standardized enforcement
+    enforce_offline_mode()
     
     # Show system info
     check_system_info()

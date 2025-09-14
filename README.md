@@ -1,6 +1,49 @@
 # Air-Gapped LLM System Setup
 
-This repository contains scripts to set up and run Large Language Models (LLMs) in a completely air-gapped environment with no internet access required after initial setup.
+This repository contains scripts to set up and run Large Language Models (LLMs) in a completely air-gapped environment with no internet access re### **Standardized Offline Enforcement**
+
+Use the included `offline_utils.py` for consistent protection across all scripts:
+
+```python
+from offline_utils import enforce_offline_mode, get_safe_model_loading_kwargs, check_local_model_exists
+
+# 1. Enforce offline mode (call this first)
+enforce_offline_mode()
+
+# 2. Check model exists locally
+if not check_local_model_exists('./local_models/chat_model'):
+    exit("Model not found - run 1_download_models.py first")
+
+# 3. Load with standardized safe parameters
+safe_kwargs = get_safe_model_loading_kwargs()
+tokenizer = AutoTokenizer.from_pretrained('./local_models/chat_model', **safe_kwargs)
+model = AutoModelForCausalLM.from_pretrained('./local_models/chat_model', **safe_kwargs)
+```
+
+**Safe loading parameters automatically include:**
+- `local_files_only=True` - Core offline enforcement
+- `low_cpu_mem_usage=True` - Memory efficiency  
+- `trust_remote_code=False` - Security (no remote code execution)
+
+### Text Embeddings
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer('./local_models/embedding_model')
+embeddings = model.encode(["Your text here"])
+```
+
+### Chat Completion
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from offline_utils import enforce_offline_mode, get_safe_model_loading_kwargs
+
+# Enforce offline mode first
+enforce_offline_mode()
+
+# Load with safe parameters
+safe_kwargs = get_safe_model_loading_kwargs()
+tokenizer = AutoTokenizer.from_pretrained('./local_models/chat_model', **safe_kwargs)
+model = AutoModelForCausalLM.from_pretrained('./local_models/chat_model', **safe_kwargs) initial setup.
 
 ## Quick Start
 
@@ -98,14 +141,56 @@ python example_llm_usage.py
 
 **Total footprint: ~1.6GB** - Fits comfortably on most systems while providing solid AI capabilities for air-gapped environments.
 
-## Air-Gapped Operation
+## Air-Gapped Operation & Security
 
-After downloading models, the system operates completely offline:
+After downloading models, the system operates completely offline with **multi-layer protection**:
 
-1. ✅ No internet connection required
-2. ✅ No external API calls
-3. ✅ All models loaded from local filesystem
-4. ✅ Enforced offline mode via environment variables
+### 🔒 **Offline Mode Enforcement**
+
+**Triple-Layer Protection:**
+1. **Environment Variables** (Primary)
+   ```python
+   os.environ['HF_HUB_OFFLINE'] = '1'        # Block HuggingFace Hub access
+   os.environ['TRANSFORMERS_OFFLINE'] = '1'  # Force local-only operation
+   ```
+
+2. **Local Files Only** (Secondary)
+   ```python
+   # Every model load enforces local-only access
+   tokenizer = AutoTokenizer.from_pretrained(path, local_files_only=True)
+   model = AutoModelForCausalLM.from_pretrained(path, local_files_only=True)
+   ```
+
+3. **Local Path References** (Tertiary)
+   ```python
+   model_path = './local_models/chat_model'  # Filesystem paths, not URLs
+   ```
+
+### 🛡️ **Security Guarantees**
+
+✅ **No internet connection required**  
+✅ **No external API calls possible**  
+✅ **All models loaded from local filesystem**  
+✅ **Immediate failure if files missing** (no silent fallbacks)  
+✅ **Suitable for classified/sensitive environments**  
+
+### 🔍 **Verify Offline Mode**
+
+```bash
+# Test 1: Disconnect internet, then run
+python 2_test_local_models.py
+
+# Test 2: Check environment variables are set
+python -c "import os; print('Offline mode:', os.environ.get('HF_HUB_OFFLINE'))"
+
+# Test 3: Monitor network activity (should show none)
+sudo lsof -i -P | grep python
+```
+
+**Error Example** (if internet attempted):
+```
+OSError: We are in offline mode, but we cannot find the model files.
+```
 
 ## Directory Structure
 

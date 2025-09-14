@@ -11,10 +11,10 @@ Usage: python example_llm_usage.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
+from offline_utils import enforce_offline_mode, get_safe_model_loading_kwargs, check_local_model_exists
 
-# Set offline mode
-os.environ['HF_HUB_OFFLINE'] = '1'
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
+# Set offline mode using standardized enforcement
+enforce_offline_mode()
 
 class LLMGenerator:
     """Simple wrapper for the air-gapped LLM with parameter control"""
@@ -33,13 +33,19 @@ class LLMGenerator:
         
         print(f"🎯 Using device: {self.device}")
         
-        # Load tokenizer and model
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_path, 
-            local_files_only=True,
-            torch_dtype=torch.float16 if self.device != "cpu" else torch.float32
-        )
+        # Check model exists locally
+        if not check_local_model_exists(model_path):
+            raise RuntimeError(f"Model not found at {model_path}")
+        
+        # Load tokenizer and model with standardized safe parameters
+        safe_kwargs = get_safe_model_loading_kwargs()
+        
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, **safe_kwargs)
+        
+        model_kwargs = safe_kwargs.copy()
+        model_kwargs['torch_dtype'] = torch.float16 if self.device != "cpu" else torch.float32
+        
+        self.model = AutoModelForCausalLM.from_pretrained(model_path, **model_kwargs)
         
         if self.device != "cpu":
             self.model = self.model.to(torch.device(self.device))
